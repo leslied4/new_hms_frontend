@@ -144,12 +144,16 @@ export const refreshAccessToken = async (): Promise<boolean> => {
   }
 };
 
-export const login = async (username: string, password: string) => {
+export const login = async (username: string, password: string, institutionUri?: string) => {
   const tokens = await request<{ access: string; refresh: string }>(
     '/auth/token/',
     {
       method: 'POST',
-      body: JSON.stringify({ username, password }),
+      body: JSON.stringify({
+        username,
+        password,
+        institution_uri: institutionUri || undefined,
+      }),
     },
     { skipAuth: true, retry: true },
   );

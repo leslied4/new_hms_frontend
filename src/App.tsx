@@ -292,6 +292,8 @@ export default function App() {
       <Routes>
         <Route element={<LoginLayout />}>
           <Route path="/Users/login" element={<UsersLogin />} />
+          <Route path="/:institutionUri" element={<UsersLogin />} />
+          <Route path="/:institutionUri/Users/login" element={<UsersLogin />} />
         </Route>
         <Route element={<MainLayout />}>
           <Route path="/Home/index" element={<HomeIndex />} />

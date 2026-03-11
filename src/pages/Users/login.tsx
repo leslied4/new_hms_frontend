@@ -1,13 +1,57 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { ApiError, login } from '../../lib/api';
+import { useEffect, useMemo, useState } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
+import { ApiError, api, login } from '../../lib/api';
+
+type InstitutionBranding = {
+  id?: string;
+  name?: string;
+  uri?: string;
+  logo_url?: string;
+};
 
 export default function UsersLogin() {
   const navigate = useNavigate();
+  const { institutionUri } = useParams<{ institutionUri?: string }>();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [branding, setBranding] = useState<InstitutionBranding | null>(null);
+  const [showLogo, setShowLogo] = useState(true);
+
+  const normalizedInstitutionUri = useMemo(
+    () => String(institutionUri || '').trim().replace(/^\/+|\/+$/g, ''),
+    [institutionUri],
+  );
+
+  useEffect(() => {
+    let mounted = true;
+    const loadBranding = async () => {
+      setShowLogo(true);
+      if (!normalizedInstitutionUri) {
+        setBranding(null);
+        return;
+      }
+      try {
+        const response = await api.get<InstitutionBranding>(
+          `/legacy/institutions/get-uri/?uri=${encodeURIComponent(normalizedInstitutionUri)}`,
+        );
+        if (!mounted) return;
+        setBranding(response || null);
+      } catch (_err) {
+        if (!mounted) return;
+        setBranding({
+          uri: normalizedInstitutionUri,
+          name: normalizedInstitutionUri.toUpperCase(),
+          logo_url: `/assets/img/${normalizedInstitutionUri}.png`,
+        });
+      }
+    };
+    void loadBranding();
+    return () => {
+      mounted = false;
+    };
+  }, [normalizedInstitutionUri]);
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -15,7 +59,7 @@ export default function UsersLogin() {
     setIsSubmitting(true);
 
     try {
-      await login(username, password);
+      await login(username, password, normalizedInstitutionUri || undefined);
       navigate('/Patients/dashboard');
     } catch (err) {
       if (err instanceof ApiError) {
@@ -30,6 +74,22 @@ export default function UsersLogin() {
 
   return (
     <div className="space-y-6">
+      {branding?.logo_url && showLogo ? (
+        <div className="flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
+          <img
+            src={branding.logo_url}
+            alt={branding.name || branding.uri || 'Institution logo'}
+            className="h-10 w-auto rounded-md object-contain"
+            onError={() => setShowLogo(false)}
+          />
+          <div className="min-w-0">
+            <p className="truncate text-xs uppercase tracking-[0.22em] text-slate-500">Institution</p>
+            <p className="truncate text-sm font-semibold text-slate-900">
+              {branding.name || branding.uri || normalizedInstitutionUri}
+            </p>
+          </div>
+        </div>
+      ) : null}
       <div className="space-y-2">
         <p className="text-xs uppercase tracking-[0.3em] text-emerald-400">Secure Login</p>
         <h2 className="text-2xl font-semibold text-slate-900">Sign in to HMS</h2>
